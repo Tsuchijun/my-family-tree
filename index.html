@@ -293,11 +293,26 @@
         }, [viewBox, getSvgPoint]);
 
         useEffect(() => {
-            if (searchTerm.trim().length === 0) { setSearchResults([]); return; }
-            const results = people.filter(p => p.name.includes(searchTerm)).slice(0, 100);
-            setSearchResults(results);
-        }, [searchTerm, people]);
+    // ID 1 の人物（神武天皇）を探し、その人物を中心に表示する
+    const jimmuTenno = people.find(p => p.id === 1752839277994);
+    const targetPerson = jimmuTenno || peopleMap.get(1) || (people.length > 0 ? people[0] : null);
 
+    if (targetPerson) {
+        const editorRect = editorRef.current?.getBoundingClientRect();
+        if (editorRect && editorRect.width > 0) {
+            // 画面サイズに応じて初期の表示領域（ズームレベル）を調整
+            const initialZoomWidth = 4000;
+            const initialZoomHeight = initialZoomWidth * (editorRect.height / editorRect.width);
+
+            setViewBox({
+                x: targetPerson.x - initialZoomWidth / 2,
+                y: targetPerson.y - initialZoomHeight / 2,
+                width: initialZoomWidth,
+                height: initialZoomHeight
+            });
+        }
+    }
+}, [people, peopleMap]);
         const handleJumpToPerson = useCallback((person) => {
             setViewBox({ x: person.x - 400, y: person.y - 300, width: 800, height: 600 });
             setSearchTerm('');
