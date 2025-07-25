@@ -415,14 +415,33 @@
         );
     };
 
-    const App = () => {
-        if (typeof familyData === 'undefined') { return <div>家系図データ (family-tree-data.js) が見つかりません。</div>; }
-        return <FamilyTreeView initialData={familyData} />;
-    };
-    
-    const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
-    root.render(<App />);
+   const App = () => {
+    const [familyData, setFamilyData] = useState(null);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        fetch('./family-tree-data.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => setFamilyData(data))
+            .catch(e => {
+                console.error("Error fetching family tree data:", e);
+                setError("家系図データの読み込みに失敗しました。");
+            });
+    }, []);
+
+    if (error) {
+        return <div>{error}</div>;
+    }
+    if (!familyData) {
+        return <div>家系図データを読み込み中...</div>;
+    }
+    return <FamilyTreeView initialData={familyData} />;
+};
 
     </script>
 </body>
