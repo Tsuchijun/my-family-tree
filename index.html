@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>日本史家系図ビューワー (完成版)</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="./family-tree-data.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
+        h1 { color: #333; margin: 15px 0; flex-shrink: 0; }
+        #root { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; width: 100%; align-items: center; position: relative; }
+
+        .main-toolbar { position: absolute; top: 5px; left: 15px; z-index: 20; display: flex; gap: 8px; align-items: center; }
+        .toolbar-group { background: rgba(255,255,255,0.85); border-radius: 6px; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; }
+        .info-panel { padding: 4px 12px; font-size: 14px; display: flex; gap: 15px; }
+
+        .search-box input { font-size: 16px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px; }
+        .search-results { position: absolute; top: 55px; left: 15px; z-index: 15; list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); width: 272px; }
+        .search-results li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .search-results li:hover { background-color: #f0f0f0; }
+        .search-results li:last-child { border-bottom: none; }
+        
+        .editor-container {
+            cursor: grab;
+            width: 95vw;
+            flex-grow: 1;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            touch-action: none;
+        }
+        .editor-container:active { cursor: grabbing; }
+
+        .person-node { cursor: default; }
+        .person-node text { user-select: none; }
+        .person-name { writing-mode: vertical-rl; text-orientation: mixed; font-size: 16px; }
+        .person-title { writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; }
+
+        .relationship-line, .child-connector, .sibling-connector, .spouse-line, .sibling-line {
+            stroke: #555;
+            stroke-width: 2px;
+            fill: none;
+        }
+        .spouse-line { stroke-width: 1.5px; }
+    </style>
+</head>
+<body>
+    <h1>日本史家系図ビューワー</h1>
+    <div id="root"></div>
+
+    <script type="text/babel">
+    const { useState, useRef, useEffect, useMemo, useCallback } = React;
+
+    const PersonNode = ({ person, layout, showNames, showTitles }) => {
+        const { rectHeight } = layout;
+        const rectWidth = 30;
+
+        const personStyles = {
+            fontWeight: person.isBold ? 'bold' : 'normal',
+            fontStyle: person.isItalic ? 'italic' : 'normal',
+            fill: person.textColor || '#333333',
+            fontFamily: person.fontFamily || 'sans-serif'
+        };
+
+        return (
+            <g className="person-node" transform={`translate(${person.x}, ${person.y})`}>
+                <rect
+                    x={-rectWidth / 2}
+                    y={-rectHeight / 2}
+                    width={rectWidth}
+                    height={rectHeight}
+                    fill={person.boxColor || '#ffffff'}
+                    rx="4"
+                />
+                {showNames && (
+                    <text className="person-name" textAnchor="middle" dominantBaseline="central" style={personStyles}>
+                        {person.name}
+                    </text>
+                )}
+                {(showTitles && person.title) && (
+                     <text
+                        className="person-title"
+                        x={rectWidth / 2 + 6}
+                        y={-rectHeight / 2}
+                        dominantBaseline="hanging"
+                        style={{...personStyles, fontWeight: 'normal' }}>
+                        {person.title}
+                    </text>
+                )}
+            </g>
+        );
+    };
+
+    const FamilyTreeView = ({ initialData }) => {
+        const { people, relationships } = initialData;
+        const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
+        const editorRef = useRef(null);
+        const gesture = useRef({ type: 'idle', startX: 0, startY: 0 });
+        
+        const [searchTerm, setSearchTerm] = useState('');
+        const [searchResults, setSearchResults] = useState([]);
+
+        const peopleMap = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
+        
+        const nodeLayouts = useMemo(() => {
+            const FONT_SIZE_NAME = 16;
+            const FONT_SIZE_TITLE = 12;
+            const PADDING = 12;
+            const layouts = new Map();
+            people.forEach(person => {
+                const nameHeight = (person.name.length || 1) * (FONT_SIZE_NAME * 1.1);
+                const titleHeight = person.title ? person.title.length * (FONT_SIZE_TITLE * 1.1) : 0;
+                const contentHeight = Math.max(nameHeight, titleHeight);
+                const rectHeight = Math.max(contentHeight, 4 * FONT_SIZE_NAME) + PADDING;
+                layouts.set(person.id, { rectHeight: rectHeight });
+            });
+            return layouts;
+        }, [people]);
+
+        const getNodeHeight = useCallback((person) => {
+            if (!person) return 60;
+            const layout = nodeLayouts.get(person.id);
+            return layout ? layout.rectHeight : ((person.name.length || 1) * 16 + 8);
+        }, [nodeLayouts]);
+
+        const getNodeConnectionPoint = useCallback((person, side) => {
+            if (!person) return 0;
+            if (person.name === 'eee') return person.y;
+            const height = getNodeHeight(person);
+            return side === 'top' ? person.y - height / 2 : person.y + height / 2;
+        }, [getNodeHeight]);
+        
+        const visibleNodes = useMemo(() => {
+            const bufferX = viewBox.width * 0.5;
+            const bufferY = viewBox.height * 0.5;
+            const vb = { minX: viewBox.x - bufferX, minY: viewBox.y - bufferY, maxX: viewBox.x + viewBox.width + bufferX, maxY: viewBox.y + viewBox.height + bufferY };
+            return people.filter(p => p.x >= vb.minX && p.x <= vb.maxX && p.y >= vb.minY && p.y <= vb.maxY);
+        }, [people, viewBox]);
+
+        const visibleNodeIds = useMemo(() => new Set(visibleNodes.map(n => n.id)), [visibleNodes]);
+
+        const visibleLines = useMemo(() => {
+             return relationships.filter(rel => {
+                if (rel.type === 'parent-child') return visibleNodeIds.has(rel.childId) || rel.parents.some(pId => visibleNodeIds.has(pId));
+                if (rel.type === 'spouse') return visibleNodeIds.has(rel.sourceId) || visibleNodeIds.has(rel.targetId);
+                if (rel.type === 'sibling-group') {
+                    const groupMembers = people.filter(p => p.siblingGroupId === rel.groupId);
+                    return groupMembers.some(m => visibleNodeIds.has(m.id));
+                }
+                return false;
+            });
+        }, [relationships, visibleNodeIds, people]);
+
+        const zoomLevel = viewBox.width;
+        const showFullDetails = zoomLevel < 3500;
+        const showNames = zoomLevel < 3500;
+        const showTitles = zoomLevel < 1200;
+
+        const horizontalSegments = useMemo(() => {
+            if (!showFullDetails) return [];
+            const segments = [];
+            visibleLines.forEach(rel => {
+                 if (rel.type === 'spouse') {
+                    const source = peopleMap.get(rel.sourceId), target = peopleMap.get(rel.targetId);
+                    if (source && target && rel.lineY) {
+                        const SPOUSE_LINE_OFFSET = 3;
+                        segments.push({ y: rel.lineY - SPOUSE_LINE_OFFSET, x1: Math.min(source.x, target.x), x2: Math.max(source.x, target.x), ownerId: rel.id });
+                        segments.push({ y: rel.lineY + SPOUSE_LINE_OFFSET, x1: Math.min(source.x, target.x), x2: Math.max(source.x, target.x), ownerId: rel.id });
+                    }
+                } else if (rel.type === 'sibling-group') {
+                    const groupMembers = people.filter(p => p.siblingGroupId === rel.groupId);
+                    if (groupMembers.length > 1 && rel.lineY) {
+                        const xCoords = groupMembers.map(p => p.x);
+                        segments.push({ y: rel.lineY, x1: Math.min(...xCoords), x2: Math.max(...xCoords), ownerId: rel.id });
+                    }
+                } else if (rel.type === 'parent-child') {
+                    if (rel.parents?.length === 1 && rel.midY) {
+                        const parent = peopleMap.get(rel.parents[0]), child = peopleMap.get(rel.childId);
+                        if (parent && child) segments.push({ y: rel.midY, x1: Math.min(parent.x, child.x), x2: Math.max(parent.x, child.x), ownerId: rel.id });
+                    } else if (rel.parents?.length === 2 && rel.connectionMidY) {
+                        const child = peopleMap.get(rel.childId);
+                        if (child && rel.childConnectorX) segments.push({ y: rel.connectionMidY, x1: Math.min(rel.childConnectorX, child.x), x2: Math.max(rel.childConnectorX, child.x), ownerId: rel.id });
+                    }
+                }
+            });
+            return segments;
+        }, [visibleLines, peopleMap, people, showFullDetails]);
+
+        const VerticalLineWithBridges = ({ x, y1, y2, ownerId, className }) => {
+            const ARC_RADIUS = 12;
+            const topY = Math.min(y1, y2);
+            const bottomY = Math.max(y1, y2);
+            const isDownward = y1 < y2;
+
+            const intersections = horizontalSegments
+                .filter(h =>
+                    h.ownerId !== ownerId &&
+                    Math.abs(h.y - y1) > 0.1 && Math.abs(h.y - y2) > 0.1 && // Ignore intersections at the very start/end of the line
+                    h.y > topY && h.y < bottomY &&
+                    x > h.x1 && x < h.x2
+                )
+                .sort((a, b) => a.y - b.y);
+
+            if (intersections.length === 0) {
+                return <line x1={x} y1={y1} x2={x} y2={y2} className={className} />;
+            }
+
+            const intersectionGroups = [];
+            if (intersections.length > 0) {
+                let currentGroup = [intersections[0]];
+                for (let i = 1; i < intersections.length; i++) {
+                    if (intersections[i].y - currentGroup[currentGroup.length - 1].y < ARC_RADIUS * 2) {
+                        currentGroup.push(intersections[i]);
+                    } else {
+                        intersectionGroups.push(currentGroup);
+                        currentGroup = [intersections[i]];
+                    }
+                }
+                intersectionGroups.push(currentGroup);
+            }
+        
+            let d = `M ${x},${y1}`;
+            const groupsToProcess = isDownward ? intersectionGroups : [...intersectionGroups].reverse();
+
+            for (const group of groupsToProcess) {
+                const sortedGroup = group.sort((a, b) => a.y - b.y);
+                const firstYInGroup = sortedGroup[0].y;
+                const lastYInGroup = sortedGroup[sortedGroup.length - 1].y;
+
+                const sweepFlag = isDownward ? 1 : 0;
+                
+                const bridgeStartY = firstYInGroup - ARC_RADIUS;
+                const bridgeEndY = lastYInGroup + ARC_RADIUS;
+                
+                const arcStartPointY = isDownward ? bridgeStartY : bridgeEndY;
+                const arcEndPointY = isDownward ? bridgeEndY : bridgeStartY;
+
+                const rx = ARC_RADIUS;
+                const ry = Math.abs(bridgeEndY - bridgeStartY) / 2;
+                
+                d += ` L ${x},${arcStartPointY}`;
+                
+                if (ry > 0) {
+                     d += ` A ${rx},${ry} 0 0 ${sweepFlag} ${x},${arcEndPointY}`;
+                }
+            }
+
+            d += ` L ${x},${y2}`;
+
+            return <path d={d} className={className} />;
+        };
+        
+        const getSvgPoint = useCallback((clientX, clientY) => {
+            if (!editorRef.current) return { x: 0, y: 0 };
+            const editorRect = editorRef.current.getBoundingClientRect();
+            return { x: viewBox.x + (clientX - editorRect.left) * (viewBox.width / editorRect.width), y: viewBox.y + (clientY - editorRect.top) * (viewBox.height / editorRect.height) };
+        }, [viewBox]);
+
+        const onPointerDown = (e) => {
+            if (e.target.closest('.main-toolbar, .search-results')) return;
+            editorRef.current.setPointerCapture(e.pointerId);
+            gesture.current = { type: 'panning', startX: e.clientX, startY: e.clientY };
+        };
+
+        const onPointerMove = (e) => {
+            if (gesture.current.type !== 'panning') return;
+            const editorRect = editorRef.current.getBoundingClientRect();
+            const moveX = e.movementX * (viewBox.width / editorRect.width);
+            const moveY = e.movementY * (viewBox.height / editorRect.height);
+            setViewBox(prev => ({ ...prev, x: prev.x - moveX, y: prev.y - moveY }));
+        };
+
+        const onPointerUp = (e) => {
+            if(editorRef.current.hasPointerCapture(e.pointerId)) editorRef.current.releasePointerCapture(e.pointerId);
+            gesture.current.type = 'idle';
+        };
+
+        const onWheel = useCallback((e) => {
+            e.preventDefault();
+            const zoomFactor = 1.1;
+            const { x: mouseSvgX, y: mouseSvgY } = getSvgPoint(e.clientX, e.clientY);
+            let newWidth = e.deltaY < 0 ? viewBox.width / zoomFactor : viewBox.width * zoomFactor;
+            newWidth = Math.max(50, Math.min(newWidth, 200000));
+            const newHeight = newWidth * (editorRef.current.clientHeight / editorRef.current.clientWidth);
+            const newX = mouseSvgX - (mouseSvgX - viewBox.x) * (newWidth / viewBox.width);
+            const newY = mouseSvgY - (mouseSvgY - viewBox.y) * (newHeight / viewBox.height);
+            setViewBox({ x: newX, y: newY, width: newWidth, height: newHeight });
+        }, [viewBox, getSvgPoint]);
+
+        useEffect(() => {
+            if (searchTerm.trim().length === 0) { setSearchResults([]); return; }
+            const results = people.filter(p => p.name.includes(searchTerm)).slice(0, 100);
+            setSearchResults(results);
+        }, [searchTerm, people]);
+
+        const handleJumpToPerson = useCallback((person) => {
+            setViewBox({ x: person.x - 400, y: person.y - 300, width: 800, height: 600 });
+            setSearchTerm('');
+            setSearchResults([]);
+        }, []);
+
+        useEffect(() => {
+            const editor = editorRef.current;
+            editor.addEventListener('wheel', onWheel, { passive: false });
+            return () => editor.removeEventListener('wheel', onWheel);
+        }, [onWheel]);
+        
+        useEffect(() => {
+            const firstPerson = peopleMap.get(1) || (people.length > 0 ? people[0] : null);
+            if (firstPerson) {
+                const editorRect = editorRef.current?.getBoundingClientRect();
+                if(editorRect && editorRect.width > 0){
+                     setViewBox({ x: firstPerson.x - editorRect.width / 2, y: firstPerson.y - editorRect.height / 2, width: editorRect.width, height: editorRect.height });
+                }
+            }
+        }, [peopleMap]);
+
+        const SiblingGroupLines = () => {
+            const groups = {};
+            people.forEach(p => {
+                if (p.siblingGroupId) {
+                    if (!groups[p.siblingGroupId]) {
+                        groups[p.siblingGroupId] = [];
+                    }
+                    groups[p.siblingGroupId].push(p);
+                }
+            });
+
+            return Object.values(groups).map(group => {
+                const rel = relationships.find(r => r.type === 'sibling-group' && r.groupId === group[0].siblingGroupId);
+                if (!rel || !visibleLines.find(vl => vl.id === rel.id)) return null;
+                const hasParents = group.some(member => relationships.some(rel => rel.type === 'parent-child' && rel.childId === member.id && rel.parents?.length > 0));
+                if (group.length < 2 || hasParents) return null;
+                const xCoords = group.map(p => p.x).sort((a,b) => a - b);
+                const minX = xCoords[0];
+                const maxX = xCoords[xCoords.length - 1];
+                const yPos = rel.lineY;
+                return ( <g key={`sg-${rel.groupId}`}> <line x1={minX} y1={yPos} x2={maxX} y2={yPos} className="sibling-line" /> {group.map(p => {
+                    const y1 = getNodeConnectionPoint(p, 'top');
+                    return showFullDetails ? <VerticalLineWithBridges key={`svl-${p.id}`} x={p.x} y1={y1} y2={yPos} ownerId={rel.id} className="sibling-connector" /> : <line key={`svl-${p.id}`} x1={p.x} y1={y1} x2={p.x} y2={yPos} className="sibling-connector" /> 
+                })} </g> );
+            });
+        };
+
+        return (
+            <>
+                <div className="main-toolbar">
+                    <div className="toolbar-group">
+                        <div className="search-box">
+                            <input type="text" placeholder="人物名を検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="toolbar-group">
+                        <div className="info-panel">
+                            <div>表示中の人物: {visibleNodes.length} / {people.length}</div>
+                            <div>ズームレベル: {Math.round(10000 / zoomLevel)}%</div>
+                        </div>
+                    </div>
+                </div>
+                {searchResults.length > 0 && (
+                    <ul className="search-results">
+                        {searchResults.map(p => (
+                            <li key={p.id} onClick={() => handleJumpToPerson(p)}>{p.name} {p.title && `(${p.title})`}</li>
+                        ))}
+                    </ul>
+                )}
+                <div className="editor-container" ref={editorRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+                    <svg style={{ width: '100%', height: '100%' }} viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}>
+                        <g className="relationships">
+                            <SiblingGroupLines />
+                            {visibleLines.map(rel => {
+                                if (rel.type === 'spouse') {
+                                    const source = peopleMap.get(rel.sourceId), target = peopleMap.get(rel.targetId); if (!source || !target) return null;
+                                    const SPOUSE_LINE_OFFSET = 3;
+                                    return ( <g key={rel.id}> <line x1={source.x} y1={rel.lineY - SPOUSE_LINE_OFFSET} x2={target.x} y2={rel.lineY - SPOUSE_LINE_OFFSET} className="spouse-line" /> <line x1={source.x} y1={rel.lineY + SPOUSE_LINE_OFFSET} x2={target.x} y2={rel.lineY + SPOUSE_LINE_OFFSET} className="spouse-line" /> </g> );
+                                }
+                                if (rel.type === 'parent-child') {
+                                    const child = peopleMap.get(rel.childId); if (!child || !rel.parents) return null;
+                                    if (rel.parents.length === 2) {
+                                        const p1 = peopleMap.get(rel.parents[0]), p2 = peopleMap.get(rel.parents[1]); if (!p1 || !p2) return null;
+                                        const parentSpouseRel = relationships.find(r => r.type === 'spouse' && ((r.sourceId === p1.id && r.targetId === p2.id) || (r.sourceId === p2.id && r.targetId === p1.id))); if (!parentSpouseRel) return null;
+                                        const x1 = rel.childConnectorX, y1 = parentSpouseRel.lineY + 3, y2 = rel.connectionMidY, x2 = child.x;
+                                        const y3 = getNodeConnectionPoint(child, 'top');
+                                        return ( <g key={rel.id}> {showFullDetails ? <VerticalLineWithBridges x={x1} y1={y1} y2={y2} ownerId={rel.id} className="child-connector"/> : <line x1={x1} y1={y1} x2={x1} y2={y2} className="child-connector"/>} <line x1={x1} y1={y2} x2={x2} y2={y2} className="relationship-line" /> {showFullDetails ? <VerticalLineWithBridges x={x2} y1={y2} y2={y3} ownerId={rel.id} className="child-connector"/> : <line x1={x2} y1={y2} x2={x2} y2={y3} className="child-connector"/>} </g> );
+                                    }
+                                    if (rel.parents.length === 1) {
+                                        const parent = peopleMap.get(rel.parents[0]); if (!parent) return null;
+                                        const x1 = parent.x, y2 = rel.midY, x2 = child.x;
+                                        const y1 = getNodeConnectionPoint(parent, 'bottom');
+                                        const y3 = getNodeConnectionPoint(child, 'top');
+                                        return ( <g key={rel.id}> {showFullDetails ? <VerticalLineWithBridges x={x1} y1={y1} y2={y2} ownerId={rel.id} className="child-connector"/> : <line x1={x1} y1={y1} x2={x1} y2={y2} className="child-connector"/>} <line x1={x1} y1={y2} x2={x2} y2={y2} className="relationship-line" /> {showFullDetails ? <VerticalLineWithBridges x={x2} y1={y2} y2={y3} ownerId={rel.id} className="child-connector"/> : <line x1={x2} y1={y2} x2={x2} y2={y3} className="child-connector"/>} </g> );
+                                    }
+                                }
+                                return null;
+                            })}
+                        </g>
+                        <g className="people">
+                            {visibleNodes.map(person => {
+                                if (person.name === 'eee') {
+                                    return null;
+                                }
+                                return showFullDetails 
+                                    ? <PersonNode key={person.id} person={person} layout={nodeLayouts.get(person.id)} showNames={showNames} showTitles={showTitles} /> 
+                                    : <circle key={person.id} cx={person.x} cy={person.y} r={zoomLevel < 10000 ? 3 : 2} fill="#555" />
+                            })}
+                        </g>
+                    </svg>
+                </div>
+            </>
+        );
+    };
+
+    const App = () => {
+        if (typeof familyData === 'undefined') { return <div>家系図データ (family-tree-data.js) が見つかりません。</div>; }
+        return <FamilyTreeView initialData={familyData} />;
+    };
+    
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<App />);
+
+    </script>
+</body>
+</html>
