@@ -78,32 +78,10 @@
 
     const FamilyTreeView = ({ initialData }) => {
         const { people, relationships } = initialData;
-
-        // 初期表示位置を計算
-        const getInitialViewBox = (editorEl) => {
-            const jimmuTenno = people.find(p => p.id === 1752839277994); // 神武天皇のID
-            const targetPerson = jimmuTenno || people.find(p => p.id === 1) || (people.length > 0 ? people[0] : null);
-            
-            if (!targetPerson) {
-                return { x: 0, y: 0, width: 800, height: 600 };
-            }
-
-            const editorWidth = editorEl?.clientWidth || 800;
-            const editorHeight = editorEl?.clientHeight || 600;
-            const initialZoomWidth = 4000;
-            const initialZoomHeight = initialZoomWidth * (editorHeight / editorWidth);
-
-            return {
-                x: targetPerson.x - initialZoomWidth / 2,
-                y: targetPerson.y - initialZoomHeight / 2,
-                width: initialZoomWidth,
-                height: initialZoomHeight
-            };
-        };
-
-        const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
+        
         const editorRef = useRef(null);
-        const gesture = useRef({ type: 'idle', startX: 0, startY: 0 });
+        const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
+        const gesture = useRef({ type: 'idle', startX: 0, startY: 0, lastPinchDist: 0 });
         
         const [searchTerm, setSearchTerm] = useState('');
         const [searchResults, setSearchResults] = useState([]);
@@ -125,6 +103,103 @@
             return layouts;
         }, [people]);
 
+        const getSvgPoint = useCallback((clientX, clientY) => {
+            if (!editorRef.current) return { x: 0, y: 0 };
+            const editorRect = editorRef.current.getBoundingClientRect();
+            return { x: viewBox.x + (clientX - editorRect.left) * (viewBox.width / editorRect.width), y: viewBox.y + (clientY - editorRect.top) * (viewBox.height / editorRect.height) };
+        }, [viewBox]);
+        
+        const applyZoom = useCallback((zoomFactor, clientX, clientY) => {
+            const { x: mouseSvgX, y: mouseSvgY } = getSvgPoint(clientX, clientY);
+            setViewBox(prev => {
+                let newWidth = prev.width * zoomFactor;
+                newWidth = Math.max(50, Math.min(newWidth, 200000));
+                const editorRect = editorRef.current.getBoundingClientRect();
+                const newHeight = newWidth * (editorRect.height / editorRect.width);
+                const newX = mouseSvgX - (mouseSvgX - prev.x) * (newWidth / prev.width);
+                const newY = mouseSvgY - (mouseSvgY - prev.y) * (newHeight / prev.height);
+                return { x: newX, y: newY, width: newWidth, height: newHeight };
+            });
+        }, [getSvgPoint]);
+
+        const onPointerDown = (e) => {
+            if (e.target.closest('.main-toolbar, .search-results')) return;
+            gesture.current.startX = e.clientX;
+            gesture.current.startY = e.clientY;
+
+            if (e.pointerType === 'touch') {
+                // This logic can be expanded for multi-touch gestures
+            } else {
+                 gesture.current.type = 'panning';
+            }
+            editorRef.current.setPointerCapture(e.pointerId);
+        };
+
+        const onPointerMove = (e) => {
+            if (gesture.current.type !== 'panning') return;
+            if (!editorRef.current.hasPointerCapture(e.pointerId)) return;
+            
+            const editorRect = editorRef.current.getBoundingClientRect();
+            const moveX = e.movementX * (viewBox.width / editorRect.width);
+            const moveY = e.movementY * (viewBox.height / editorRect.height);
+            setViewBox(prev => ({ ...prev, x: prev.x - moveX, y: prev.y - moveY }));
+        };
+
+        const onPointerUp = (e) => {
+            if(editorRef.current.hasPointerCapture(e.pointerId)) {
+                editorRef.current.releasePointerCapture(e.pointerId);
+            }
+            gesture.current.type = 'idle';
+        };
+
+        const onWheel = useCallback((e) => {
+            e.preventDefault();
+            // ctrlKey is for touchpad pinch zoom
+            if (e.ctrlKey) {
+                const zoomFactor = e.deltaY > 0 ? 1.05 : 0.95;
+                applyZoom(zoomFactor, e.clientX, e.clientY);
+            } else {
+                // This handles mouse wheel zoom and standard touchpad scroll-to-zoom
+                const zoomFactor = e.deltaY < 0 ? 1 / 1.1 : 1.1;
+                applyZoom(zoomFactor, e.clientX, e.clientY);
+            }
+        }, [applyZoom]);
+
+
+        useEffect(() => {
+            // 初期表示位置の設定
+            const getInitialViewBox = (editorEl) => {
+                const jimmuTenno = people.find(p => p.id === 1752839277994); // 神武天皇のID
+                const targetPerson = jimmuTenno || people.find(p => p.id === 1) || (people.length > 0 ? people[0] : null);
+                
+                if (!targetPerson) return { x: 0, y: 0, width: 800, height: 600 };
+
+                const editorWidth = editorEl?.clientWidth || 800;
+                const editorHeight = editorEl?.clientHeight || 600;
+                const initialZoomWidth = 4000;
+                const initialZoomHeight = initialZoomWidth * (editorHeight / editorWidth);
+
+                return {
+                    x: targetPerson.x - initialZoomWidth / 2,
+                    y: targetPerson.y - initialZoomHeight / 2,
+                    width: initialZoomWidth,
+                    height: initialZoomHeight
+                };
+            };
+            
+            const editor = editorRef.current;
+            if (editor) {
+                setViewBox(getInitialViewBox(editor));
+                editor.addEventListener('wheel', onWheel, { passive: false });
+                return () => editor.removeEventListener('wheel', onWheel);
+            }
+        }, [people, onWheel]);
+        
+
+        // (他の関数やuseEffectフックはここに続きます... 省略)
+        // ...
+        // ... FamilyTreeViewコンポーネントの残りの部分は変更ありません ...
+        // ...
         const getNodeHeight = useCallback((person) => {
             if (!person) return 60;
             const layout = nodeLayouts.get(person.id);
@@ -251,40 +326,6 @@
             d += ` L ${x},${y2}`;
             return <path d={d} className={className} />;
         };
-        
-        const getSvgPoint = useCallback((clientX, clientY) => {
-            if (!editorRef.current) return { x: 0, y: 0 };
-            const editorRect = editorRef.current.getBoundingClientRect();
-            return { x: viewBox.x + (clientX - editorRect.left) * (viewBox.width / editorRect.width), y: viewBox.y + (clientY - editorRect.top) * (viewBox.height / editorRect.height) };
-        }, [viewBox]);
-
-        const onPointerDown = (e) => {
-            if (e.target.closest('.main-toolbar, .search-results')) return;
-            editorRef.current.setPointerCapture(e.pointerId);
-            gesture.current = { type: 'panning', startX: e.clientX, startY: e.clientY };
-        };
-
-        const onPointerMove = (e) => {
-            if (gesture.current.type !== 'panning') return;
-            setViewBox(prev => ({ ...prev, x: prev.x - e.movementX * (viewBox.width / editorRef.current.clientWidth), y: prev.y - e.movementY * (viewBox.height / editorRef.current.clientHeight) }));
-        };
-
-        const onPointerUp = (e) => {
-            if(editorRef.current.hasPointerCapture(e.pointerId)) editorRef.current.releasePointerCapture(e.pointerId);
-            gesture.current.type = 'idle';
-        };
-
-        const onWheel = useCallback((e) => {
-            e.preventDefault();
-            const zoomFactor = 1.1;
-            const { x: mouseSvgX, y: mouseSvgY } = getSvgPoint(e.clientX, e.clientY);
-            let newWidth = e.deltaY < 0 ? viewBox.width / zoomFactor : viewBox.width * zoomFactor;
-            newWidth = Math.max(50, Math.min(newWidth, 200000));
-            const newHeight = newWidth * (editorRef.current.clientHeight / editorRef.current.clientWidth);
-            const newX = mouseSvgX - (mouseSvgX - viewBox.x) * (newWidth / viewBox.width);
-            const newY = mouseSvgY - (mouseSvgY - viewBox.y) * (newHeight / viewBox.height);
-            setViewBox({ x: newX, y: newY, width: newWidth, height: newHeight });
-        }, [viewBox, getSvgPoint]);
 
         useEffect(() => {
             if (searchTerm.trim().length === 0) { setSearchResults([]); return; }
@@ -296,15 +337,6 @@
             setViewBox({ x: person.x - 400, y: person.y - 300, width: 800, height: 600 });
             setSearchTerm('');
             setSearchResults([]);
-        }, []);
-
-        useEffect(() => {
-            const editor = editorRef.current;
-            if (editor) {
-                setViewBox(getInitialViewBox(editor));
-                editor.addEventListener('wheel', onWheel, { passive: false });
-                return () => editor.removeEventListener('wheel', onWheel);
-            }
         }, []);
         
         const SiblingGroupLines = () => {
@@ -354,7 +386,14 @@
                         ))}
                     </ul>
                 )}
-                <div className="editor-container" ref={editorRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+                <div 
+                    className="editor-container" 
+                    ref={editorRef} 
+                    onPointerDown={onPointerDown} 
+                    onPointerMove={onPointerMove} 
+                    onPointerUp={onPointerUp} 
+                    onPointerCancel={onPointerUp}
+                >
                     <svg style={{ width: '100%', height: '100%' }} viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}>
                         <g className="relationships">
                             <SiblingGroupLines />
