@@ -398,7 +398,7 @@ title: 家系図ビューワー
         const [error, setError] = useState(null);
 
         useEffect(() => {
-            fetch('../family-tree-data.json')
+            fetch('./family-tree-data.json')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
