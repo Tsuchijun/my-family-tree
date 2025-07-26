@@ -33,6 +33,7 @@ title: 家系図ビューワー
 <h2>日本史家系図ビューワー</h2>
 <div id="root"></div>
 
+{% raw %}
 <script type="text/babel">
     const { useState, useRef, useEffect, useMemo, useCallback } = React;
 
@@ -397,7 +398,7 @@ title: 家系図ビューワー
         const [error, setError] = useState(null);
 
         useEffect(() => {
-            fetch('./family-tree-data.json')
+            fetch('../family-tree-data.json')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -424,5 +425,6 @@ title: 家系図ビューワー
     const root = ReactDOM.createRoot(container);
     root.render(<App />);
 </script>
+{% endraw %}
 </body>
 </html>
