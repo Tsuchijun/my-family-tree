@@ -2,47 +2,38 @@
 layout: default
 title: 家系図ビューワー
 ---
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+    /* スタイル部分はここに移動 */
+    #root { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; width: 100%; align-items: center; position: relative; }
+    .main-toolbar { position: absolute; top: 5px; left: 15px; z-index: 20; display: flex; gap: 8px; align-items: center; }
+    .toolbar-group { background: rgba(255,255,255,0.85); border-radius: 6px; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; }
+    .info-panel { padding: 4px 12px; font-size: 14px; display: flex; gap: 15px; }
+    .search-box input { font-size: 16px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px; }
+    .search-results { position: absolute; top: 55px; left: 15px; z-index: 15; list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); width: 272px; }
+    .search-results li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .search-results li:hover { background-color: #f0f0f0; }
+    .search-results li:last-child { border-bottom: none; }
+    .zoom-controls button { width: 30px; height: 30px; font-size: 20px; font-weight: bold; border: 1px solid #ccc; background-color: #fff; cursor: pointer; }
+    .zoom-controls button:first-child { border-right: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px;}
+    .zoom-controls button:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px;}
+    .zoom-controls button:hover { background-color: #f0f0f0; }
+    .editor-container { cursor: grab; width: 95vw; flex-grow: 1; min-height: 50vh; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); touch-action: none; }
+    .editor-container:active { cursor: grabbing; }
+    .person-node { cursor: default; }
+    .person-node text { user-select: none; }
+    .person-name { writing-mode: vertical-rl; text-orientation: mixed; font-size: 16px; }
+    .person-title { writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; }
+    .relationship-line, .child-connector, .sibling-connector, .spouse-line, .sibling-line { stroke: #555; stroke-width: 2px; fill: none; }
+    .spouse-line { stroke-width: 1.5px; }
+</style>
 
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>日本史家系図ビューワー</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
-        h1 { color: #333; margin: 15px 0; flex-shrink: 0; }
-        #root { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; width: 100%; align-items: center; position: relative; }
-        .main-toolbar { position: absolute; top: 5px; left: 15px; z-index: 20; display: flex; gap: 8px; align-items: center; }
-        .toolbar-group { background: rgba(255,255,255,0.85); border-radius: 6px; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; }
-        .info-panel { padding: 4px 12px; font-size: 14px; display: flex; gap: 15px; }
-        .search-box input { font-size: 16px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px; }
-        .search-results { position: absolute; top: 55px; left: 15px; z-index: 15; list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); width: 272px; }
-        .search-results li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
-        .search-results li:hover { background-color: #f0f0f0; }
-        .search-results li:last-child { border-bottom: none; }
-        .zoom-controls button { width: 30px; height: 30px; font-size: 20px; font-weight: bold; border: 1px solid #ccc; background-color: #fff; cursor: pointer; }
-        .zoom-controls button:first-child { border-right: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px;}
-        .zoom-controls button:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px;}
-        .zoom-controls button:hover { background-color: #f0f0f0; }
-        .editor-container { cursor: grab; width: 95vw; flex-grow: 1; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); touch-action: none; }
-        .editor-container:active { cursor: grabbing; }
-        .person-node { cursor: default; }
-        .person-node text { user-select: none; }
-        .person-name { writing-mode: vertical-rl; text-orientation: mixed; font-size: 16px; }
-        .person-title { writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; }
-        .relationship-line, .child-connector, .sibling-connector, .spouse-line, .sibling-line { stroke: #555; stroke-width: 2px; fill: none; }
-        .spouse-line { stroke-width: 1.5px; }
-    </style>
-</head>
-<body>
-    <h1>日本史家系図ビューワー</h1>
-    <div id="root"></div>
+<h2>日本史家系図ビューワー</h2>
+<div id="root"></div>
 
-    <script type="text/babel">
+<script type="text/babel">
     const { useState, useRef, useEffect, useMemo, useCallback } = React;
 
     const PersonNode = ({ person, layout, showNames, showTitles }) => {
@@ -54,12 +45,10 @@ title: 家系図ビューワー
             fill: person.textColor || '#333333',
             fontFamily: person.fontFamily || 'sans-serif'
         };
-
         const formatTitle = (title) => {
             if (!title) return '';
             return title.replace(/\(/g, '（').replace(/\)/g, '）');
         };
-
         return (
             <g className="person-node" transform={`translate(${person.x}, ${person.y})`}>
                 <rect x={-rectWidth / 2} y={-rectHeight / 2} width={rectWidth} height={rectHeight} fill={person.boxColor || '#ffffff'} rx="4"/>
@@ -183,25 +172,18 @@ title: 家系図ビューワー
             }
         }, [people]);
 
-        // ▼▼▼ 検索機能の修正箇所 ▼▼▼
         useEffect(() => {
             if (searchTerm.trim().length === 0) {
                 setSearchResults([]);
                 return;
             }
-            
-            // 検索キーワードから半角・全角スペースを削除
             const cleanedSearchTerm = searchTerm.replace(/[\s　]/g, '');
-
             const results = people.filter(p => {
-                // 人物データの名からも半角・全角スペースを削除して比較
                 const cleanedPersonName = p.name.replace(/[\s　]/g, '');
                 return cleanedPersonName.includes(cleanedSearchTerm);
             }).slice(0, 100);
-
             setSearchResults(results);
         }, [searchTerm, people]);
-        // ▲▲▲ ここまでが修正箇所 ▲▲▲
 
         const handleJumpToPerson = useCallback((person) => {
             setViewBox({ x: person.x - 400, y: person.y - 300, width: 800, height: 600 });
@@ -441,7 +423,6 @@ title: 家系図ビューワー
     const container = document.getElementById('root');
     const root = ReactDOM.createRoot(container);
     root.render(<App />);
-
-    </script>
+</script>
 </body>
 </html>
