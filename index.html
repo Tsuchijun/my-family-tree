@@ -19,6 +19,10 @@
         .search-results li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
         .search-results li:hover { background-color: #f0f0f0; }
         .search-results li:last-child { border-bottom: none; }
+        .zoom-controls button { width: 30px; height: 30px; font-size: 20px; font-weight: bold; border: 1px solid #ccc; background-color: #fff; cursor: pointer; }
+        .zoom-controls button:first-child { border-right: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px;}
+        .zoom-controls button:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px;}
+        .zoom-controls button:hover { background-color: #f0f0f0; }
         .editor-container { cursor: grab; width: 95vw; flex-grow: 1; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); touch-action: none; }
         .editor-container:active { cursor: grabbing; }
         .person-node { cursor: default; }
@@ -45,6 +49,13 @@
             fill: person.textColor || '#333333',
             fontFamily: person.fontFamily || 'sans-serif'
         };
+
+        // 括弧を全角に置換する関数
+        const formatTitle = (title) => {
+            if (!title) return '';
+            return title.replace(/\(/g, '（').replace(/\)/g, '）');
+        };
+
         return (
             <g className="person-node" transform={`translate(${person.x}, ${person.y})`}>
                 <rect x={-rectWidth / 2} y={-rectHeight / 2} width={rectWidth} height={rectHeight} fill={person.boxColor || '#ffffff'} rx="4"/>
@@ -52,7 +63,14 @@
                     <text className="person-name" textAnchor="middle" dominantBaseline="central" style={personStyles}>{person.name}</text>
                 )}
                 {(showTitles && person.title) && (
-                     <text className="person-title" x={rectWidth / 2 + 6} y={-rectHeight / 2} dominantBaseline="hanging" style={{...personStyles, fontWeight: 'normal' }}>{person.title}</text>
+                     <text
+                        className="person-title"
+                        x={rectWidth / 2 + 10} /* 肩書きの位置を調整 */
+                        y={-rectHeight / 2}
+                        dominantBaseline="hanging"
+                        style={{...personStyles, fontWeight: 'normal' }}>
+                        {formatTitle(person.title)}
+                    </text>
                 )}
             </g>
         );
@@ -70,13 +88,12 @@
         const nodeLayouts = useMemo(() => {
             const FONT_SIZE_NAME = 16;
             const FONT_SIZE_TITLE = 12;
-            const PADDING = 12;
             const layouts = new Map();
             people.forEach(person => {
                 const nameHeight = (person.name.length || 1) * (FONT_SIZE_NAME * 1.1);
                 const titleHeight = person.title ? person.title.length * (FONT_SIZE_TITLE * 1.1) : 0;
                 const contentHeight = Math.max(nameHeight, titleHeight);
-                const rectHeight = Math.max(contentHeight, 4 * FONT_SIZE_NAME) + PADDING;
+                const rectHeight = contentHeight + 4; // 上下の余白を調整
                 layouts.set(person.id, { rectHeight });
             });
             return layouts;
@@ -87,6 +104,29 @@
             const editorRect = editorRef.current.getBoundingClientRect();
             return { x: viewBox.x + (clientX - editorRect.left) * (viewBox.width / editorRect.width), y: viewBox.y + (clientY - editorRect.top) * (viewBox.height / editorRect.height) };
         }, [viewBox]);
+        
+        const applyZoom = useCallback((zoomFactor, clientX, clientY) => {
+            const { x: mouseSvgX, y: mouseSvgY } = getSvgPoint(clientX, clientY);
+            setViewBox(prev => {
+                let newWidth = prev.width * zoomFactor;
+                newWidth = Math.max(50, Math.min(newWidth, 200000));
+                const editorRect = editorRef.current.getBoundingClientRect();
+                const newHeight = newWidth * (editorRect.height / editorRect.width);
+                const newX = mouseSvgX - (mouseSvgX - prev.x) * (newWidth / prev.width);
+                const newY = mouseSvgY - (mouseSvgY - prev.y) * (newHeight / prev.height);
+                return { x: newX, y: newY, width: newWidth, height: newHeight };
+            });
+        }, [getSvgPoint]);
+
+        const zoomIn = useCallback(() => {
+            const editorRect = editorRef.current.getBoundingClientRect();
+            applyZoom(1 / 1.2, editorRect.left + editorRect.width / 2, editorRect.top + editorRect.height / 2);
+        }, [applyZoom]);
+        
+        const zoomOut = useCallback(() => {
+            const editorRect = editorRef.current.getBoundingClientRect();
+            applyZoom(1.2, editorRect.left + editorRect.width / 2, editorRect.top + editorRect.height / 2);
+        }, [applyZoom]);
 
         const onPointerDown = (e) => {
             if (e.target.closest('.main-toolbar, .search-results')) return;
@@ -112,17 +152,8 @@
         const onWheel = useCallback((e) => {
             e.preventDefault();
             const zoomFactor = e.deltaY < 0 ? 1 / 1.1 : 1.1;
-            const { x: mouseSvgX, y: mouseSvgY } = getSvgPoint(e.clientX, e.clientY);
-            setViewBox(prev => {
-                let newWidth = prev.width * zoomFactor;
-                newWidth = Math.max(50, Math.min(newWidth, 200000));
-                const editorRect = editorRef.current.getBoundingClientRect();
-                const newHeight = newWidth * (editorRect.height / editorRect.width);
-                const newX = mouseSvgX - (mouseSvgX - prev.x) * (newWidth / prev.width);
-                const newY = mouseSvgY - (mouseSvgY - prev.y) * (newHeight / prev.height);
-                return { x: newX, y: newY, width: newWidth, height: newHeight };
-            });
-        }, [getSvgPoint]);
+            applyZoom(zoomFactor, e.clientX, e.clientY);
+        }, [applyZoom]);
 
         useEffect(() => {
             const editor = editorRef.current;
@@ -153,7 +184,6 @@
             }
         }, [people]);
 
-        // --- FamilyTreeViewコンポーネントの他の関数 (変更なし) ---
         const getNodeHeight = useCallback((person) => {
             if (!person) return 60;
             const layout = nodeLayouts.get(person.id);
@@ -298,6 +328,11 @@
                 })} </g> );
             });
         };
+        
+        const formatTitleForSearch = (title) => {
+            if (!title) return '';
+            return `(${title})`.replace(/\(/g, '（').replace(/\)/g, '）');
+        };
 
         return (
             <>
@@ -305,15 +340,18 @@
                     <div className="toolbar-group">
                         <div className="search-box"><input type="text" placeholder="人物名を検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
                     </div>
+                    <div className="toolbar-group zoom-controls">
+                        <button onClick={zoomIn}>+</button>
+                        <button onClick={zoomOut}>-</button>
+                    </div>
                     <div className="toolbar-group">
                         <div className="info-panel">
-                            <div>表示中の人物: {visibleNodes.length} / {people.length}</div>
                             <div>ズームレベル: {Math.round(10000 / zoomLevel)}%</div>
                         </div>
                     </div>
                 </div>
                 {searchResults.length > 0 && (
-                    <ul className="search-results">{searchResults.map(p => (<li key={p.id} onClick={() => handleJumpToPerson(p)}>{p.name} {p.title && `(${p.title})`}</li>))}</ul>
+                    <ul className="search-results">{searchResults.map(p => (<li key={p.id} onClick={() => handleJumpToPerson(p)}>{p.name} {p.title && formatTitleForSearch(p.title)}</li>))}</ul>
                 )}
                 <div className="editor-container" ref={editorRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
                     <svg style={{ width: '100%', height: '100%' }} viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}>
