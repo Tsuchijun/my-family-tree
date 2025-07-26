@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title }} | 日本史家系図</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; margin: 20px; }
+        header, nav, main, footer { max-width: 800px; margin: 0 auto; padding: 1em; background: #fff; border-radius: 8px; margin-bottom: 20px; }
+        nav a { margin-right: 15px; text-decoration: none; color: #0366d6; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>日本史家系図プロジェクト</h1>
+    </header>
+    <nav>
+        <a href="/">トップページ</a>
+        <a href="/my-family-tree/viewer.html">家系図ビューワー</a>
+        <a href="/my-family-tree/contributors.html">共同編集者募集</a>
+    </nav>
+    <main>
+        {{ content }}
+    </main>
+    <footer>
+        <p>&copy; 2025 Tsuchijun</p>
+    </footer>
+</body>
+</html>
