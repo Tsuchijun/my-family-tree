@@ -6,7 +6,13 @@ title: 家系図ビューワー
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-    #root { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; width: 100%; align-items: center; position: relative; }
+    /* viewerページ専用のスタイル */
+    main {
+        padding: 0 !important; /* 親要素の余白をなくす */
+        border: none !important;
+        background: none !important;
+    }
+    #root { display: flex; flex-direction: column; height: 80vh; /* ビューワーの高さを画面の80%に */ width: 100%; align-items: center; position: relative; }
     .main-toolbar { position: absolute; top: 10px; left: 10px; z-index: 20; display: flex; gap: 8px; align-items: center; }
     .toolbar-group { background: rgba(255,255,255,0.9); border: 1px solid #ddd; border-radius: 4px; padding: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; align-items: center; }
     .info-panel { padding: 4px 12px; font-size: 14px; display: flex; gap: 15px; font-family: sans-serif; }
@@ -19,7 +25,7 @@ title: 家系図ビューワー
     .zoom-controls button:first-child { border-right: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px;}
     .zoom-controls button:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px;}
     .zoom-controls button:hover { background-color: #f0f0f0; }
-    .editor-container { cursor: grab; width: 100%; flex-grow: 1; min-height: 65vh; margin-top: 1rem; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); touch-action: none; }
+    .editor-container { cursor: grab; width: 100%; flex-grow: 1; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; touch-action: none; }
     .editor-container:active { cursor: grabbing; }
     .person-node { cursor: default; }
     .person-node rect { stroke: #bbb; stroke-width: 1px; }
