@@ -8,18 +8,18 @@ title: 家系図ビューワー
 <style>
     /* viewerページ専用のスタイル */
     main {
-        padding: 0 !important; /* 親要素の余白をなくす */
+        padding: 0 !important;
         border: none !important;
         background: none !important;
     }
-    #root { display: flex; flex-direction: column; height: 80vh; /* ビューワーの高さを画面の80%に */ width: 100%; align-items: center; position: relative; }
+    #root { display: flex; flex-direction: column; height: 80vh; width: 100%; align-items: center; position: relative; }
     .main-toolbar { position: absolute; top: 10px; left: 10px; z-index: 20; display: flex; gap: 8px; align-items: center; }
-    .toolbar-group { background: rgba(255,255,255,0.9); border: 1px solid #ddd; border-radius: 4px; padding: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; align-items: center; }
+    .toolbar-group { background: rgba(255,255,255,0.85); border-radius: 6px; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; }
     .info-panel { padding: 4px 12px; font-size: 14px; display: flex; gap: 15px; font-family: sans-serif; }
     .search-box input { font-size: 16px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px; }
-    .search-results { position: absolute; top: 58px; left: 10px; z-index: 15; list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); width: 272px; font-family: sans-serif; }
+    .search-results { position: absolute; top: 58px; left: 10px; z-index: 15; list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); width: 272px; font-family: sans-serif; }
     .search-results li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
-    .search-results li:hover { background-color: #f5f5f5; }
+    .search-results li:hover { background-color: #f0f0f0; }
     .search-results li:last-child { border-bottom: none; }
     .zoom-controls button { width: 32px; height: 32px; font-size: 20px; border: 1px solid #ccc; background-color: #fff; cursor: pointer; color: #333; }
     .zoom-controls button:first-child { border-right: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px;}
@@ -28,12 +28,12 @@ title: 家系図ビューワー
     .editor-container { cursor: grab; width: 100%; flex-grow: 1; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; touch-action: none; }
     .editor-container:active { cursor: grabbing; }
     .person-node { cursor: default; }
-    .person-node rect { stroke: #bbb; stroke-width: 1px; }
-    .person-node text { user-select: none; font-family: 'Noto Serif JP', serif; }
+    .person-node rect { stroke: none; } /* 人物の枠線を削除 */
+    .person-node text { user-select: none; font-family: sans-serif; } /* フォントをゴシック調に */
     .person-name { writing-mode: vertical-rl; text-orientation: mixed; font-size: 16px; }
     .person-title { writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; fill: #555; }
-    .relationship-line, .child-connector, .sibling-connector, .spouse-line, .sibling-line { stroke: #888; stroke-width: 1.5px; fill: none; }
-    .spouse-line { stroke-width: 1px; }
+    .relationship-line, .child-connector, .sibling-connector, .spouse-line, .sibling-line { stroke: #555; stroke-width: 2px; fill: none; }
+    .spouse-line { stroke-width: 1.5px; }
 </style>
 
 <div id="root"></div>
