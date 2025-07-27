@@ -4,54 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page.title }} | 日本史家系図</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Noto Serif JP', serif;
-            background-color: #f7f7f7;
+            font-family: sans-serif; /* フォントをゴシック調（サンセリフ）に戻す */
+            background-color: #f0f2f5; /* 背景色を元の色に戻す */
             margin: 0;
             padding: 0;
-            color: #333333;
-            line-height: 1.7;
+            color: #333;
         }
         .container {
-            /* ページ全体の横幅を広げる */
-            max-width: 1400px;
-            margin: 1rem auto; /* 上下の余白を小さく */
+            max-width: 1400px; /* 広い横幅は維持 */
+            margin: 1rem auto;
             padding: 0 1rem;
         }
         header, nav, main, footer {
             background: #ffffff;
-            border: 1px solid #e0e0e0;
-            margin-bottom: 1rem; /* 各要素間の余白を小さく */
+            border: 1px solid #ddd;
+            margin-bottom: 1rem;
             padding: 1rem 1.5rem;
+            border-radius: 6px;
         }
         header h1 {
-            font-size: 1.8rem; /* タイトルを少し小さく */
-            color: #1a237e;
+            font-size: 1.8rem;
+            color: #333;
             margin: 0;
-            font-weight: 700;
         }
         nav {
             padding: 0.75rem 1.5rem;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid #eee;
             margin-top: 1rem;
         }
         nav a {
             margin-right: 20px;
             text-decoration: none;
-            color: #3f51b5;
-            font-weight: 600;
+            color: #007bff;
         }
         nav a:hover {
             text-decoration: underline;
         }
         main h2 {
             font-size: 1.5rem;
-            color: #1a237e;
-            border-bottom: 2px solid #3f51b5;
+            color: #333;
+            border-bottom: 1px solid #ccc;
             padding-bottom: 0.5rem;
             margin-top: 0;
         }
@@ -60,7 +54,7 @@
             font-size: 0.9em;
             color: #757575;
             padding: 1.5rem;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid #eee;
         }
     </style>
 </head>
