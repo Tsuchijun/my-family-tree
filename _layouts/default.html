@@ -4,26 +4,80 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page.title }} | 日本史家系図</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; margin: 20px; }
-        header, nav, main, footer { max-width: 800px; margin: 0 auto; padding: 1em; background: #fff; border-radius: 8px; margin-bottom: 20px; }
-        nav a { margin-right: 15px; text-decoration: none; color: #0366d6; }
+        body {
+            font-family: 'Noto Serif JP', serif; /* 読みやすい明朝体 */
+            background-color: #f7f7f7; /* 少し温かみのある白 */
+            margin: 0;
+            padding: 0;
+            color: #333333;
+            line-height: 1.7;
+        }
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        header, nav, main, footer {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 2rem;
+        }
+        header h1 {
+            font-size: 2rem;
+            color: #1a237e; /* 濃紺 */
+            margin: 0;
+            font-weight: 700;
+        }
+        nav {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        nav a {
+            margin-right: 20px;
+            text-decoration: none;
+            color: #3f51b5; /* 藍色 */
+            font-weight: 600;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        main h2 {
+            font-size: 1.5rem;
+            color: #1a237e;
+            border-bottom: 2px solid #3f51b5;
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+        }
+        footer {
+            text-align: center;
+            font-size: 0.9em;
+            color: #757575;
+            padding: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
     </style>
 </head>
 <body>
-    <header>
-        <h1>日本史家系図プロジェクト</h1>
-    </header>
-<nav>
-    <a href="/my-family-tree/">トップページ</a>
-    <a href="/my-family-tree/viewer.html">家系図ビューワー</a>
-    <a href="/my-family-tree/contributors.html">共同編集者募集</a>
-</nav>
-    <main>
-        {{ content }}
-    </main>
-    <footer>
-        <p>&copy; 2025 Tsuchijun</p>
-    </footer>
+    <div class="container">
+        <header>
+            <h1>日本史家系図プロジェクト</h1>
+        </header>
+        <nav>
+            <a href="/my-family-tree/">トップページ</a>
+            <a href="/my-family-tree/viewer.html">家系図ビューワー</a>
+            <a href="/my-family-tree/contributors.html">共同編集者募集</a>
+        </nav>
+        <main>
+            {{ content }}
+        </main>
+        <footer>
+            <p>&copy; 2025 Tsuchijun</p>
+        </footer>
+    </div>
 </body>
 </html>
